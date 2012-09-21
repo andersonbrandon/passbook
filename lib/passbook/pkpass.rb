@@ -46,7 +46,7 @@ module Passbook
         @tmpdir = Dir.mktmpdir('pk_')
 
         @files.each_with_index do |file, index|
-          name = file.is_a?(Hash) ? file[:content] : file
+          name = file.is_a?(Hash) && file.has_key?(:file) ? file[:file] : file
           fetch_remote_file(file, index) if name.match(/^http/)
         end
 
@@ -54,15 +54,15 @@ module Passbook
 
       def fetch_remote_file(file, index)
         is_hash   = file.is_a?(Hash)
-        url       = is_hash ? file[:content] : file
+        url       = is_hash ? file[:file] : file
         name      = File.basename( is_hash ? file[:name] : file )
         local     = "#{@tmpdir}/#{name}"
-        
+
         open(local, 'wb') do |file|
           file << open(url).read
         end
         
-        @files[index] = (is_hash) ? { :name => file[:name], :content => local } : local
+        @files[index] = (is_hash) ? { :name => file[:name], :file => local } : local
 
       end
 
@@ -88,8 +88,14 @@ module Passbook
         sha1s['pass.json'] = Digest::SHA1.hexdigest @json
 
         @files.each do |file|
-          if file.class == Hash
-            sha1s[file[:name]] = Digest::SHA1.hexdigest file[:content]
+          if file.is_a?(Hash)
+
+            # Is this straight up content from memory?
+            if file.has_key?(:content)
+              sha1s[file[:name]] = Digest::SHA1.hexdigest file[:content]
+            elsif file.has_key?(:file)
+              sha1s[file[:name]] = Digest::SHA1.file(file[:file]).hexdigest
+            end
           else
             sha1s[File.basename(file)] = Digest::SHA1.file(file).hexdigest
           end
@@ -123,9 +129,16 @@ module Passbook
           z.print signature
 
           @files.each do |file|
-            if file.class == Hash
-              z.put_next_entry file[:name]
-              z.print file[:content]
+            if file.is_a?(Hash)
+
+              if file.has_key?(:content)
+                z.put_next_entry file[:name]
+                z.print file[:content]
+              elsif file.has_key?(:file)
+                z.put_next_entry File.basename(file[:name])
+                z.print IO.read(file[:file])
+              end
+
             else
               z.put_next_entry File.basename(file)
               z.print IO.read(file)
