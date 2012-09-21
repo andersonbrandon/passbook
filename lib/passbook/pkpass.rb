@@ -56,7 +56,7 @@ module Passbook
         is_hash   = file.is_a?(Hash)
         url       = is_hash ? file[:content] : file
         name      = File.basename( is_hash ? file[:name] : file )
-        local     = "#{FILE_PATH}/#{name}"
+        local     = "#{@tmpdir}/#{name}"
         
         open(local, 'wb') do |file|
           file << open(url).read
