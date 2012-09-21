@@ -2,6 +2,7 @@ require 'digest/sha1'
 require 'openssl'
 require 'zip/zip'
 require 'base64'
+require 'open-uri'
 
 module Passbook
   class PKPass
@@ -24,6 +25,11 @@ module Passbook
     end
 
     def create
+
+      # Check for external resources and load them into /tmp somewhere 
+      self.loadExternalFiles
+
+      # Create the manifest, now that we (should) have any external files locally
       manifest = self.createManifest
 
       # Check pass for necessary files and fields
@@ -35,12 +41,38 @@ module Passbook
 
     protected
 
+      def loadExternalFiles
+
+        @tmpdir = Dir.mktmpdir('pk_')
+
+        @files.each_with_index do |file, index|
+          name = file.is_a?(Hash) ? file[:content] : file
+          fetch_remote_file(file, index) if name.match(/^http/)
+        end
+
+      end
+
+      def fetch_remote_file(file, index)
+        is_hash   = file.is_a?(Hash)
+        url       = is_hash ? file[:content] : file
+        name      = File.basename( is_hash ? file[:name] : file )
+        local     = "#{FILE_PATH}/#{name}"
+        
+        open(local, 'wb') do |file|
+          file << open(url).read
+        end
+        
+        @files[index] = (is_hash) ? { :name => file[:name], :content => local } : local
+
+      end
+
+
       def checkPass manifest
         # Check for default images
-        raise 'Icon missing' unless manifest.include?('icon.png')
-        raise 'Icon@2x missing' unless manifest.include?('icon@2x.png')
-        raise 'Logo missing' unless manifest.include?('logo.png')
-        raise 'Logo@2x missing' unless manifest.include?('logo@2x.png')
+        raise 'Icon missing'      unless manifest.include?('icon.png')
+        raise 'Icon@2x missing'   unless manifest.include?('icon@2x.png')
+        raise 'Logo missing'      unless manifest.include?('logo.png')
+        raise 'Logo@2x missing'   unless manifest.include?('logo@2x.png')
 
         # Check for developer field in JSON
         raise 'Pass Type Identifier missing' unless @json.include?('passTypeIdentifier')
@@ -103,6 +135,11 @@ module Passbook
         path = t.path
 
         t.close
+
+        # Clear out the tmpfile
+        FileUtils.remove_entry_secure @tmpdir
+
+        # Return the path to the zipfile
         return path
       end
   end
