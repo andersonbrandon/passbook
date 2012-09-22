@@ -3,8 +3,9 @@ module Passbook
     class ConfigGenerator < Rails::Generators::Base
       source_root File.expand_path('../templates', __FILE__)
 
-      argument :p12_cert_path, type: :string, default: '', optional: true, banner: "Absolute path to your cert.p12 file"
-      argument :p12_password, type: :string, default: '', optional: true, banner: "Password for your certificate"
+      argument :p12_cert_path,    type: :string, default: '', optional: true, banner: "Absolute path to your cert.p12 file"
+      argument :wwdc_cert_path,   type: :string, default: '', optional: true, banner: "Absolute path to your wwdc.cer file"
+      argument :p12_password,     type: :string, default: '', optional: true, banner: "Password for your certificate"
 
       desc 'Create passbook initializer'
       def create_initializer_file
